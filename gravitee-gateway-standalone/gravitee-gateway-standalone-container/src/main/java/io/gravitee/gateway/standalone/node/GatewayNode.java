@@ -16,11 +16,11 @@
 package io.gravitee.gateway.standalone.node;
 
 import io.gravitee.common.component.LifecycleComponent;
-import io.gravitee.common.node.AbstractNode;
 import io.gravitee.gateway.reactor.Reactor;
 import io.gravitee.gateway.report.ReporterService;
 import io.gravitee.gateway.services.ServiceManager;
 import io.gravitee.gateway.standalone.vertx.VertxEmbeddedContainer;
+import io.gravitee.node.container.AbstractNode;
 import io.gravitee.plugin.core.api.PluginRegistry;
 import io.gravitee.plugin.core.internal.PluginEventListener;
 
@@ -28,17 +28,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * @author David BRASSELY (brasseld at gmail.com)
+ * @author David BRASSELY (david.brassely at graviteesource.com)
+ * @author GraviteeSource Team
  */
 public class GatewayNode extends AbstractNode {
 
     @Override
     public String name() {
-        return "Gravitee.io - Gateway";
+        return "API Gateway node";
     }
 
     @Override
-    protected List<Class<? extends LifecycleComponent>> getLifecycleComponents() {
+    public List<Class<? extends LifecycleComponent>> components() {
         List<Class<? extends LifecycleComponent>> components = new ArrayList<>();
 
         components.add(PluginEventListener.class);
