@@ -24,23 +24,29 @@
     <parent>
         <groupId>io.gravitee.gateway.standalone</groupId>
         <artifactId>gravitee-gateway-standalone</artifactId>
-        <version>1.19.0-SNAPSHOT</version>
+        <version>1.21.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>gravitee-gateway-standalone-container</artifactId>
     <name>Gravitee.io APIM - Gateway - Standalone - Container</name>
 
-    <build>
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-                <filtering>true</filtering>
-            </resource>
-        </resources>
-    </build>
-
     <dependencies>
-        <!-- Gravitee Dependencies -->
+        <!-- Gravitee.io -->
+        <dependency>
+            <groupId>io.gravitee.node</groupId>
+            <artifactId>gravitee-node-container</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.gravitee.node</groupId>
+            <artifactId>gravitee-node-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.gravitee.node</groupId>
+            <artifactId>gravitee-node-vertx</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>io.gravitee.gateway</groupId>
             <artifactId>gravitee-gateway-reactor</artifactId>
@@ -72,8 +78,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.gravitee.gateway.services</groupId>
-            <artifactId>gravitee-gateway-services-core</artifactId>
+            <groupId>io.gravitee.gateway</groupId>
+            <artifactId>gravitee-gateway-dictionary</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -101,23 +107,6 @@
             <version>${jackson.version}</version>
             <scope>compile</scope>
         </dependency>
-        
-        <!-- Vert.x -->
-        <dependency>
-            <groupId>io.vertx</groupId>
-            <artifactId>vertx-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.vertx</groupId>
-            <artifactId>vertx-micrometer-metrics</artifactId>
-            <version>${vertx.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-registry-prometheus</artifactId>
-            <version>1.0.0</version>
-        </dependency>
 
         <!-- Logging -->
         <dependency>
@@ -139,7 +128,7 @@
             <version>${guava.version}</version>
         </dependency>
 
-        <!-- Spring dependencies -->
+        <!-- Spring -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-core</artifactId>
@@ -209,4 +198,129 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>dev</id>
+
+            <properties>
+                <workspace>${project.build.directory}/temp</workspace>
+                <workspace.plugins>${workspace}/plugins</workspace.plugins>
+                <workspace.logs>${workspace}/logs</workspace.logs>
+                <gravitee.gateway.log.dir>${workspace}/logs</gravitee.gateway.log.dir>
+            </properties>
+
+            <build>
+                <resources>
+                    <resource>
+                        <directory>../gravitee-gateway-standalone-distribution/src/main/resources/</directory>
+                        <includes>
+                            <include>config/*</include>
+                            <include>templates/*</include>
+                        </includes>
+                        <targetPath>${workspace}</targetPath>
+                        <filtering>true</filtering>
+                    </resource>
+                </resources>
+
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <version>2.10</version>
+                        <executions>
+                            <execution>
+                                <id>copy-plugins</id>
+                                <phase>process-resources</phase>
+                                <goals>
+                                    <goal>copy</goal>
+                                </goals>
+                                <configuration>
+                                    <artifactItems>
+                                        <!-- REPOSITORIES -->
+                                        <artifactItem>
+                                            <groupId>io.gravitee.repository</groupId>
+                                            <artifactId>gravitee-repository-mongodb</artifactId>
+                                            <version>LATEST</version>
+                                            <type>zip</type>
+                                            <overWrite>false</overWrite>
+                                        </artifactItem>
+                                        <artifactItem>
+                                            <groupId>io.gravitee.repository</groupId>
+                                            <artifactId>gravitee-repository-elasticsearch</artifactId>
+                                            <version>LATEST</version>
+                                            <type>zip</type>
+                                            <overWrite>false</overWrite>
+                                        </artifactItem>
+                                        <!-- POLICIES -->
+                                        <artifactItem>
+                                            <groupId>io.gravitee.policy</groupId>
+                                            <artifactId>gravitee-policy-apikey</artifactId>
+                                            <version>LATEST</version>
+                                            <type>zip</type>
+                                            <overWrite>false</overWrite>
+                                        </artifactItem>
+                                    </artifactItems>
+                                    <outputDirectory>${workspace.plugins}</outputDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>init-dir</id>
+                                <phase>process-resources</phase>
+                                <configuration>
+                                    <tasks>
+                                        <mkdir dir="${workspace.logs}"/>
+                                        <mkdir dir="${workspace.plugins}"/>
+                                    </tasks>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>1.5.0</version>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <includeProjectDependencies>true</includeProjectDependencies>
+                            <mainClass>io.gravitee.gateway.standalone.GatewayContainer</mainClass>
+                            <systemProperties>
+                                <systemProperty>
+                                    <key>gravitee.home</key>
+                                    <value>${workspace}</value>
+                                </systemProperty>
+                            </systemProperties>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>

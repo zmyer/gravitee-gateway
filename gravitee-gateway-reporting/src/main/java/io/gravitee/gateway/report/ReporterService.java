@@ -15,17 +15,13 @@
  */
 package io.gravitee.gateway.report;
 
-import io.gravitee.common.service.Service;
 import io.gravitee.reporter.api.Reportable;
-import io.gravitee.reporter.api.Reporter;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
-public interface ReporterService extends Service {
-
-    void register(Reporter reporter);
+public interface ReporterService {
 
     void report(Reportable reportable);
 }

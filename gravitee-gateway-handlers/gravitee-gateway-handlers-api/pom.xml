@@ -24,7 +24,7 @@
     <parent>
         <groupId>io.gravitee.gateway.handlers</groupId>
         <artifactId>gravitee-gateway-handlers</artifactId>
-        <version>1.19.0-SNAPSHOT</version>
+        <version>1.21.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>gravitee-gateway-handlers-api</artifactId>
@@ -101,6 +101,13 @@
         <dependency>
             <groupId>io.gravitee.common</groupId>
             <artifactId>gravitee-common</artifactId>
+        </dependency>
+
+        <!-- Vert.x -->
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-web</artifactId>
+            <version>${vertx.version}</version>
         </dependency>
     </dependencies>
 </project>
