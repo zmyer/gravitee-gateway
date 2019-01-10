@@ -15,7 +15,8 @@
  */
 package io.gravitee.gateway.standalone.policy;
 
-import io.gravitee.plugin.policy.PolicyPluginManager;
+import io.gravitee.plugin.core.api.ConfigurablePluginManager;
+import io.gravitee.plugin.policy.PolicyPlugin;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
@@ -23,5 +24,5 @@ import io.gravitee.plugin.policy.PolicyPluginManager;
  */
 public interface PolicyRegister {
 
-    void register(PolicyPluginManager policyPluginManager);
+    void register(ConfigurablePluginManager<PolicyPlugin> policyPluginManager);
 }

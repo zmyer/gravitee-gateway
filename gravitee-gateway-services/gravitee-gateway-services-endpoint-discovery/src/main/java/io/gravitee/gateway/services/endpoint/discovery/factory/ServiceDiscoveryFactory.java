@@ -13,23 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.gravitee.gateway.handlers.api.context;
+package io.gravitee.gateway.services.endpoint.discovery.factory;
 
-import java.util.Map;
+import io.gravitee.discovery.api.ServiceDiscovery;
+import io.gravitee.plugin.discovery.ServiceDiscoveryPlugin;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
-public class EvaluableExecutionContext {
+public interface ServiceDiscoveryFactory {
 
-    private final DefaultExecutionContext executionContext;
-
-    EvaluableExecutionContext(DefaultExecutionContext executionContext) {
-        this.executionContext = executionContext;
-    }
-
-    public Map<String, Object> getAttributes() {
-        return executionContext.getAttributes();
-    }
+    <T extends ServiceDiscovery> T create(ServiceDiscoveryPlugin sdPlugin, String sdConfiguration);
 }

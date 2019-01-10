@@ -24,7 +24,7 @@
     <parent>
         <groupId>io.gravitee.gateway</groupId>
         <artifactId>gravitee-gateway</artifactId>
-        <version>1.21.0-SNAPSHOT</version>
+        <version>1.22.0-SNAPSHOT</version>
     </parent>
 
     <groupId>io.gravitee.gateway.services</groupId>
@@ -38,7 +38,7 @@
         <module>gravitee-gateway-services-healthcheck</module>
         <module>gravitee-gateway-services-apikeyscache</module>
         <module>gravitee-gateway-services-heartbeat</module>
-        <module>gravitee-gateway-services-endpoint-discovery-consul</module>
+        <module>gravitee-gateway-services-endpoint-discovery</module>
         <module>gravitee-gateway-services-subscriptions-cache</module>
     </modules>
 

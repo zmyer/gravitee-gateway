@@ -21,13 +21,12 @@ import io.gravitee.gateway.policy.*;
 import io.gravitee.gateway.reactor.Reactable;
 import io.gravitee.gateway.reactor.handler.ReactorHandler;
 import io.gravitee.gateway.resource.ResourceLifecycleManager;
+import io.gravitee.plugin.core.api.ConfigurablePluginManager;
 import io.gravitee.plugin.core.api.PluginClassLoader;
 import io.gravitee.plugin.policy.PolicyClassLoaderFactory;
 import io.gravitee.plugin.policy.PolicyPlugin;
-import io.gravitee.plugin.policy.PolicyPluginManager;
 import io.gravitee.plugin.policy.internal.PolicyMethodResolver;
 import io.gravitee.policy.api.PolicyConfiguration;
-import io.gravitee.policy.api.PolicyContext;
 import io.gravitee.policy.api.annotations.OnRequest;
 import io.gravitee.policy.api.annotations.OnRequestContent;
 import io.gravitee.policy.api.annotations.OnResponse;
@@ -37,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.core.ResolvableType;
 import org.springframework.util.ClassUtils;
 
 import java.io.IOException;
@@ -70,39 +70,10 @@ public class DefaultPolicyManager extends AbstractLifecycleComponent<PolicyManag
     protected void doStart() throws Exception {
         // Init required policies
         initialize();
-
-        // Activate policy context
-        policies.values()
-                .stream()
-                .filter(registeredPolicy -> registeredPolicy.metadata.context() != null)
-                .forEach(registeredPolicy -> {
-                    try {
-                        logger.info("Activating context for {} [{}]", registeredPolicy.metadata.id(),
-                                registeredPolicy.metadata.context().getClass().getName());
-
-                        registeredPolicy.metadata.context().onActivation();
-                    } catch (Exception ex) {
-                        logger.error("Unable to activate policy context", ex);
-                    }
-                });
     }
 
     @Override
     protected void doStop() throws Exception {
-        // Deactivate policy context
-        policies.values()
-                .stream()
-                .filter(registeredPolicy -> registeredPolicy.metadata.context() != null)
-                .forEach(registeredPolicy -> {
-                    try {
-                        logger.info("De-activating context for {} [{}]", registeredPolicy.metadata.id(),
-                                registeredPolicy.metadata.context().getClass().getName());
-                        registeredPolicy.metadata.context().onDeactivation();
-                    } catch (Exception ex) {
-                        logger.error("Unable to deactivate policy context", ex);
-                    }
-                });
-
         // Close policy classloaders
         policies.values().forEach(policy -> {
             ClassLoader policyClassLoader = policy.classLoader;
@@ -120,7 +91,11 @@ public class DefaultPolicyManager extends AbstractLifecycleComponent<PolicyManag
     }
 
     private void initialize() {
-        PolicyPluginManager ppm = applicationContext.getBean(PolicyPluginManager.class);
+        String[] beanNamesForType = applicationContext.getParent().getBeanNamesForType(
+                ResolvableType.forClassWithGenerics(ConfigurablePluginManager.class, PolicyPlugin.class));
+
+        ConfigurablePluginManager<PolicyPlugin> ppm = (ConfigurablePluginManager<PolicyPlugin>) applicationContext
+                .getParent().getBean(beanNamesForType[0]);
         PolicyClassLoaderFactory pclf = applicationContext.getBean(PolicyClassLoaderFactory.class);
         ReactorHandler rh = applicationContext.getBean(ReactorHandler.class);
         ResourceLifecycleManager rm = applicationContext.getBean(ResourceLifecycleManager.class);
@@ -170,14 +145,6 @@ public class DefaultPolicyManager extends AbstractLifecycleComponent<PolicyManag
                     builder.setConfiguration((Class<? extends PolicyConfiguration>) ClassUtils.forName(policyPlugin.configuration().getName(), policyClassLoader));
                 }
 
-                // Prepare context if defined
-                if (policyPlugin.context() != null) {
-                    Class<? extends PolicyContext> policyContextClass = (Class<? extends PolicyContext>)ClassUtils.forName(policyPlugin.context().getName(), policyClassLoader);
-                    // Create policy context instance and initialize context provider (if used)
-                    PolicyContext context = new PolicyContextFactory(reactable).create(policyContextClass);
-                    builder.setContext(context);
-                }
-
                 RegisteredPolicy registeredPolicy = new RegisteredPolicy();
                 registeredPolicy.classLoader = policyClassLoader;
                 registeredPolicy.metadata = builder.build();
@@ -198,14 +165,9 @@ public class DefaultPolicyManager extends AbstractLifecycleComponent<PolicyManag
     }
 
     @Override
-    public PolicyMetadata get(String policy) {
-        RegisteredPolicy registeredPolicy = policies.get(policy);
-        return (registeredPolicy != null) ? registeredPolicy.metadata : null;
-    }
-
-    @Override
     public io.gravitee.gateway.policy.Policy create(StreamType streamType, String policy, String configuration) {
-        PolicyMetadata policyMetadata = get(policy);
+        RegisteredPolicy registeredPolicy = policies.get(policy);
+        PolicyMetadata policyMetadata = (registeredPolicy != null) ? registeredPolicy.metadata : null;
 
         if ((streamType == StreamType.ON_REQUEST &&
                 (policyMetadata.method(OnRequest.class) != null || policyMetadata.method(OnRequestContent.class) != null)) ||
@@ -214,14 +176,7 @@ public class DefaultPolicyManager extends AbstractLifecycleComponent<PolicyManag
             PolicyConfiguration policyConfiguration = policyConfigurationFactory.create(
                     policyMetadata.configuration(), configuration);
 
-            // TODO: this should be done only if policy is injectable
-            Map<Class<?>, Object> injectables = new HashMap<>(2);
-            injectables.put(policyMetadata.configuration(), policyConfiguration);
-            if (policyMetadata.context() != null) {
-                injectables.put(policyMetadata.context().getClass(), policyMetadata.context());
-            }
-
-            Object policyInst = policyFactory.create(policyMetadata, injectables);
+            Object policyInst = policyFactory.create(policyMetadata, policyConfiguration);
 
             logger.debug("Policy {} has been added to the policy chain", policyMetadata.id());
             return PolicyImpl

@@ -24,7 +24,7 @@
     <parent>
         <groupId>io.gravitee.gateway.services</groupId>
         <artifactId>gravitee-gateway-services</artifactId>
-        <version>1.21.0-SNAPSHOT</version>
+        <version>1.22.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>gravitee-gateway-services-healthcheck</artifactId>
@@ -64,6 +64,16 @@
             <artifactId>gravitee-gateway-reactor</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.gravitee.alert</groupId>
+            <artifactId>gravitee-alert-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.gravitee.plugin</groupId>
+            <artifactId>gravitee-plugin-alert</artifactId>
         </dependency>
 
         <!-- Jackson dependencies -->

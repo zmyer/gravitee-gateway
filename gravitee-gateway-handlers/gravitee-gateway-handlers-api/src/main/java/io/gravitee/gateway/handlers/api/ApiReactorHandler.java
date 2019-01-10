@@ -19,7 +19,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
-import com.google.common.base.Throwables;
 import io.gravitee.common.http.HttpHeaders;
 import io.gravitee.common.http.HttpHeadersValues;
 import io.gravitee.common.http.HttpStatusCode;
@@ -30,15 +29,12 @@ import io.gravitee.gateway.api.Invoker;
 import io.gravitee.gateway.api.Request;
 import io.gravitee.gateway.api.Response;
 import io.gravitee.gateway.api.buffer.Buffer;
-import io.gravitee.gateway.api.expression.TemplateContext;
-import io.gravitee.gateway.api.expression.TemplateVariableProvider;
 import io.gravitee.gateway.api.handler.Handler;
 import io.gravitee.gateway.api.proxy.ProxyResponse;
 import io.gravitee.gateway.core.endpoint.lifecycle.GroupLifecyleManager;
 import io.gravitee.gateway.core.invoker.EndpointInvoker;
 import io.gravitee.gateway.core.processor.*;
 import io.gravitee.gateway.core.proxy.DirectProxyConnection;
-import io.gravitee.gateway.handlers.api.context.ExecutionContextFactory;
 import io.gravitee.gateway.handlers.api.definition.Api;
 import io.gravitee.gateway.handlers.api.metrics.PathMappingMetricsHandler;
 import io.gravitee.gateway.handlers.api.policy.api.ApiPolicyChainResolver;
@@ -51,12 +47,16 @@ import io.gravitee.gateway.policy.PolicyChainResolver;
 import io.gravitee.gateway.policy.PolicyManager;
 import io.gravitee.gateway.reactor.Reactable;
 import io.gravitee.gateway.reactor.handler.AbstractReactorHandler;
+import io.gravitee.gateway.reactor.handler.alert.AlertHandler;
 import io.gravitee.gateway.resource.ResourceLifecycleManager;
 import io.gravitee.gateway.security.core.SecurityPolicyChainResolver;
+import io.gravitee.node.api.Node;
+import io.gravitee.plugin.alert.AlertEngineService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -65,7 +65,7 @@ import java.util.List;
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
-public class ApiReactorHandler extends AbstractReactorHandler implements TemplateVariableProvider,  InitializingBean {
+public class ApiReactorHandler extends AbstractReactorHandler implements InitializingBean {
 
     private final Logger logger = LoggerFactory.getLogger(ApiReactorHandler.class);
 
@@ -87,16 +87,23 @@ public class ApiReactorHandler extends AbstractReactorHandler implements Templat
     private List<ProcessorProvider> requestProcessors, responseProcessors, errorProcessors;
 
     @Autowired
-    private ExecutionContextFactory executionContextFactory;
+    private AlertEngineService alertEngineService;
+
+    @Autowired
+    private Node node;
+    @Value("${http.port:8082}")
+    private String port;
 
     @Override
-    protected void doHandle(Request serverRequest, Response serverResponse, Handler<Response> handler) {
+    protected void doHandle(Request serverRequest, Response serverResponse, ExecutionContext executionContext, Handler<Response> handler) {
+        // Pause the request and resume it as soon as all the stream are plugged and we have processed the HEAD part
+        // of the request. (see handleProxyInvocation method).
+        serverRequest.pause();
+
         if (api.getPathMappings() != null && !api.getPathMappings().isEmpty()) {
             handler = new PathMappingMetricsHandler(handler, api.getPathMappings(), serverRequest);
         }
 
-        // Prepare request execution context
-        ExecutionContext executionContext = executionContextFactory.create(serverRequest, serverResponse);
         executionContext.setAttribute(ExecutionContext.ATTR_CONTEXT_PATH, serverRequest.contextPath());
         executionContext.setAttribute(ExecutionContext.ATTR_API, api.getId());
         executionContext.setAttribute(ExecutionContext.ATTR_INVOKER, invoker);
@@ -105,20 +112,8 @@ public class ApiReactorHandler extends AbstractReactorHandler implements Templat
         serverRequest.metrics().setApi(api.getId());
         serverRequest.metrics().setPath(serverRequest.pathInfo());
 
-        try {
-            handleClientRequest(serverRequest, serverResponse, executionContext, handler);
-        } catch (Exception ex) {
-            logger.error("An unexpected error occurs while processing request", ex);
-
-            serverRequest.metrics().setMessage(Throwables.getStackTraceAsString(ex));
-
-            // Send an INTERNAL_SERVER_ERROR (500)
-            serverResponse.status(HttpStatusCode.INTERNAL_SERVER_ERROR_500);
-            serverResponse.headers().set(HttpHeaders.CONNECTION, HttpHeadersValues.CONNECTION_CLOSE);
-            serverResponse.end();
-
-            handler.handle(serverResponse);
-        }
+        // It's time to process the incoming client request
+        handleClientRequest(serverRequest, serverResponse, executionContext, handler);
     }
 
     private void handleClientRequest(final Request serverRequest, final Response serverResponse, final ExecutionContext executionContext, final Handler<Response> handler) {
@@ -130,6 +125,7 @@ public class ApiReactorHandler extends AbstractReactorHandler implements Templat
                 .errorHandler(failure -> handleError(context, failure, handler))
                 .streamErrorHandler(failure -> handleError(context, failure, handler))
                 .exitHandler(__ -> {
+                    context.getRequest().resume();
                     context.getResponse().end();
                     handler.handle(context.getResponse());
                 })
@@ -137,10 +133,6 @@ public class ApiReactorHandler extends AbstractReactorHandler implements Templat
     }
 
     private void handleProxyInvocation(final ProcessorContext processorContext, final StreamableProcessor<Buffer> processor, final Handler<Response> handler) {
-        // Pause the request and resume it as soon as all the stream are plugged and we have processed the HEAD part
-        // of the request.
-        processorContext.getRequest().pause();
-
         // Call an invoker to get a proxy connection (connection to an underlying backend, mainly HTTP)
         Invoker upstreamInvoker = (Invoker) processorContext.getContext().getAttribute(ExecutionContext.ATTR_INVOKER);
 
@@ -248,11 +240,6 @@ public class ApiReactorHandler extends AbstractReactorHandler implements Templat
         }
 
         response.end();
-    }
-
-    @Override
-    public void provide(TemplateContext templateContext) {
-        templateContext.setVariable("properties", api.properties());
     }
 
     private class ProcessorFailureAsJson {

@@ -13,18 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.gravitee.gateway.policy;
+package io.gravitee.gateway.services.endpoint.discovery.factory;
 
-import io.gravitee.policy.api.PolicyContext;
-import io.gravitee.policy.api.PolicyContextProvider;
+import io.gravitee.discovery.api.ServiceDiscoveryConfiguration;
 
 /**
- * @author David BRASSELY (david at gravitee.io)
+ * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
-public interface PolicyContextProviderFactory {
+public interface ServiceDiscoveryConfigurationFactory {
 
-    boolean canHandle(PolicyContext policyContext);
-
-    PolicyContextProvider create(PolicyContext policyContext);
+    <T extends ServiceDiscoveryConfiguration> T create(Class<T> serviceDiscoveryConfigurationClass, String configuration);
 }

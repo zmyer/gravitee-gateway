@@ -13,28 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.gravitee.gateway.handlers.api.context;
+package io.gravitee.gateway.services.endpoint.discovery.endpoint;
 
-import io.gravitee.common.http.HttpHeaders;
-import io.gravitee.gateway.api.Response;
+import io.gravitee.definition.model.endpoint.HttpEndpoint;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
-public class EvaluableResponse {
+public class DiscoveredEndpoint extends HttpEndpoint {
 
-    private final Response response;
-
-    EvaluableResponse(final Response response) {
-        this.response = response;
-    }
-
-    public int getStatus() {
-        return response.status();
-    }
-
-    public HttpHeaders getHeaders() {
-        return response.headers();
+    public DiscoveredEndpoint(String name, String target) {
+        super(name, target);
     }
 }

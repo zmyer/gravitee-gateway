@@ -13,16 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.gravitee.gateway.policy.impl;
+package io.gravitee.gateway.reactor.handler.context;
 
-import io.gravitee.gateway.reactor.Reactable;
-import io.gravitee.policy.api.PolicyContext;
+import java.util.Map;
 
 /**
- * @author David BRASSELY (david at gravitee.io)
+ * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
-public interface PolicyContextProcessor {
+public class EvaluableExecutionContext {
 
-    void process(PolicyContext policyContext, Reactable reactable) throws Exception;
+    private final DefaultExecutionContext executionContext;
+
+    EvaluableExecutionContext(DefaultExecutionContext executionContext) {
+        this.executionContext = executionContext;
+    }
+
+    public Map<String, Object> getAttributes() {
+        return executionContext.getAttributes();
+    }
 }
